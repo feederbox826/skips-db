@@ -7,19 +7,19 @@ use crate::models::{AggregateStudio, PublicSubmission};
 
 pub async fn ensure_user(pool: &SqlitePool, user_id: &str) -> sqlx::Result<()> {
   sqlx::query("INSERT OR IGNORE INTO users (user_id) VALUES (?)")
-  .bind(user_id)
-  .execute(pool)
-  .await?;
+    .bind(user_id)
+    .execute(pool)
+    .await?;
   Ok(())
 }
 
 pub async fn set_user_name(pool: &SqlitePool, user_id: &str, name: &str) -> sqlx::Result<()> {
   ensure_user(pool, user_id).await?;
   sqlx::query("UPDATE users SET name = ? WHERE user_id = ?")
-  .bind(name)
-  .bind(user_id)
-  .execute(pool)
-  .await?;
+    .bind(name)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
   Ok(())
 }
 
@@ -34,10 +34,10 @@ pub async fn submit_time(
   let existing: Option<i64> = sqlx::query_scalar::<_, i64>(
     "SELECT id FROM submissions WHERE studio_id = ? AND skip_seconds = ?",
   )
-  .bind(studio_id)
-  .bind(skip_seconds)
-  .fetch_optional(pool)
-  .await?;
+    .bind(studio_id)
+    .bind(skip_seconds)
+    .fetch_optional(pool)
+    .await?;
   // if exists, upvote instead
   if let Some(id) = existing {
     cast_vote(pool, user_id, id, 1).await?;
@@ -48,15 +48,15 @@ pub async fn submit_time(
   
   sqlx::query(
     "INSERT INTO submissions (user_id, studio_id, skip_seconds) VALUES (?, ?, ?)
-         ON CONFLICT (studio_id, user_id) DO UPDATE SET
-           skip_seconds = excluded.skip_seconds,
-           created_at = date('now')",
+      ON CONFLICT (studio_id, user_id) DO UPDATE SET
+        skip_seconds = excluded.skip_seconds,
+        created_at = current_date",
   )
-  .bind(user_id)
-  .bind(studio_id)
-  .bind(skip_seconds)
-  .execute(&mut *tx)
-  .await?;
+    .bind(user_id)
+    .bind(studio_id)
+    .bind(skip_seconds)
+    .execute(&mut *tx)
+    .await?;
   
   recompute_studio_aggregate_tx(&mut tx, studio_id).await?;
   
@@ -70,12 +70,13 @@ pub async fn cast_vote(
   submission_id: i64,
   value: i64,
 ) -> sqlx::Result<()> {
+  // validate studio exists and user is not self-voting
   let row: Option<(Uuid, String)> =
   sqlx::query_as("SELECT studio_id, user_id FROM submissions WHERE id = ?")
-  .bind(submission_id)
-  .fetch_optional(pool)
-  .await?;
-  
+    .bind(submission_id)
+    .fetch_optional(pool)
+    .await?;
+    
   let Some((studio_id, user_id)) = row else {
     return Err(sqlx::Error::RowNotFound);
   };
@@ -83,19 +84,19 @@ pub async fn cast_vote(
   if user_id == voter_user_id {
     return Ok(());
   }
-  
+
   ensure_user(pool, voter_user_id).await?;
   
   let mut tx = pool.begin().await?;
   sqlx::query(
     "INSERT INTO votes (submission_id, user_id, vote) VALUES (?, ?, ?)
-         ON CONFLICT (submission_id, user_id) DO UPDATE SET vote = excluded.vote",
+      ON CONFLICT (submission_id, user_id) DO UPDATE SET vote = excluded.vote",
   )
-  .bind(submission_id)
-  .bind(voter_user_id)
-  .bind(value)
-  .execute(&mut *tx)
-  .await?;
+    .bind(submission_id)
+    .bind(voter_user_id)
+    .bind(value)
+    .execute(&mut *tx)
+    .await?;
   
   recompute_studio_aggregate_tx(&mut tx, studio_id).await?;
   tx.commit().await?;
@@ -109,9 +110,9 @@ pub async fn get_aggregate(
   sqlx::query_as::<_, AggregateStudio>(
     "SELECT studio_id, skip_seconds FROM studio_aggregates WHERE studio_id = ?",
   )
-  .bind(studio_id)
-  .fetch_optional(pool)
-  .await
+    .bind(studio_id)
+    .fetch_optional(pool)
+    .await
 }
 
 pub async fn list_submissions(pool: &SqlitePool) -> sqlx::Result<Vec<PublicSubmission>> {
@@ -128,8 +129,8 @@ pub async fn list_submissions(pool: &SqlitePool) -> sqlx::Result<Vec<PublicSubmi
       GROUP BY s.id, s.studio_id, s.skip_seconds, u.name
       ORDER BY s.id"#,
   )
-  .fetch_all(pool)
-  .await?;
+    .fetch_all(pool)
+    .await?;
   Ok(rows)
 }
 
@@ -152,9 +153,9 @@ pub async fn list_submissions_for_studio(
       GROUP BY s.id, s.studio_id, s.skip_seconds, u.name
       ORDER BY s.id"#,
   )
-  .bind(studio_id)
-  .fetch_all(pool)
-  .await?;
+    .bind(studio_id)
+    .fetch_all(pool)
+    .await?;
   Ok(rows)
 }
 
@@ -190,10 +191,10 @@ async fn recompute_studio_aggregate_tx(
       ON CONFLICT (studio_id) DO UPDATE SET
         skip_seconds = excluded.skip_seconds"#,
   )
-  .bind(studio_id)
-  .execute(&mut **tx)
-  .await?;
-  
+    .bind(studio_id)
+    .execute(&mut **tx)
+    .await?;
+
   sqlx::query(
     r#"DELETE FROM studio_aggregates
       WHERE studio_id = ?
@@ -201,10 +202,10 @@ async fn recompute_studio_aggregate_tx(
           SELECT 1 FROM submissions WHERE studio_id = ?
         )"#,
   )
-  .bind(studio_id)
-  .bind(studio_id)
-  .execute(&mut **tx)
-  .await?;
+    .bind(studio_id)
+    .bind(studio_id)
+    .execute(&mut **tx)
+    .await?;
   
   Ok(())
 }

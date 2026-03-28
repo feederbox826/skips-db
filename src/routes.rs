@@ -29,8 +29,8 @@ pub async fn get_aggregate(
 ) -> Result<Json<AggregateStudio>, (StatusCode, Json<serde_json::Value>)> {
   let studio_id = parse_studio_uuid(&studio_id_raw)?;
   let row = db::get_aggregate(&state.pool, studio_id)
-  .await
-  .map_err(|e| db_err(e))?;
+    .await
+    .map_err(|e| db_err(e))?;
   let Some(aggregate) = row else {
     return Err((
       StatusCode::NOT_FOUND,
@@ -44,8 +44,8 @@ pub async fn list_submissions(
   State(state): State<AppState>
 ) -> Result<Json<Vec<PublicSubmission>>, (StatusCode, Json<serde_json::Value>)> {
   let submissions = db::list_submissions(&state.pool)
-  .await
-  .map_err(|e| db_err(e))?;
+    .await
+    .map_err(|e| db_err(e))?;
   Ok(Json(submissions))
 }
 
@@ -55,8 +55,8 @@ pub async fn list_submissions_by_studio(
 ) -> Result<Json<Vec<PublicSubmission>>, (StatusCode, Json<serde_json::Value>)> {
   let studio_id = parse_studio_uuid(&studio_id_raw)?;
   let submissions = db::list_submissions_for_studio(&state.pool, studio_id)
-  .await
-  .map_err(|e| db_err(e))?;
+    .await
+    .map_err(|e: sqlx::Error| db_err(e))?;
   Ok(Json(submissions))
 }
 
@@ -87,8 +87,8 @@ pub async fn submit_time(
     body.studio_id,
     body.skip_seconds,
   )
-  .await
-  .map_err(|e| db_err(e))?;
+    .await
+    .map_err(|e| db_err(e))?;
   Ok(StatusCode::CREATED)
 }
 

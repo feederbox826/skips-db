@@ -8,7 +8,7 @@ CREATE TABLE submissions (
   user_id TEXT NOT NULL,
   studio_id TEXT NOT NULL,
   skip_seconds REAL NOT NULL DEFAULT 0,
-  created_at TEXT DEFAULT CURRENT_DATE,
+  created_at TEXT DEFAULT current_date,
   FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 CREATE UNIQUE INDEX idx_submissions_user ON submissions(studio_id, user_id);

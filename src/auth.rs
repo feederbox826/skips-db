@@ -23,9 +23,9 @@ S: Send + Sync,
   
   async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
     let Some(auth) = parts
-    .headers
-    .get(axum::http::header::AUTHORIZATION)
-    .and_then(|v| v.to_str().ok())
+      .headers
+      .get(axum::http::header::AUTHORIZATION)
+      .and_then(|v| v.to_str().ok())
     else {
       return Err((
         StatusCode::UNAUTHORIZED,
