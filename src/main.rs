@@ -7,6 +7,7 @@ use axum::Router;
 use routes::AppState;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::net::SocketAddr;
+use tower_http::cors::{Any, CorsLayer};
 
 async fn shutdown_signal() {
   tokio::signal::ctrl_c()
@@ -49,7 +50,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       axum::routing::get(routes::get_aggregate),
     )
     .route("/api/user/name", axum::routing::post(routes::set_name))
-    .with_state(AppState { pool });
+    .with_state(AppState { pool })
+    .layer(CorsLayer::new().allow_origin(Any));
   
   let addr = SocketAddr::from(([0, 0, 0, 0], port()));
   println!("Listening on http://{}", addr);
