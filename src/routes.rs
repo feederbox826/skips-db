@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::auth::BearerUserId;
 use crate::db;
-use crate::models::{AggregateJson, SetNameBody, SubmitBody, SubmissionPublic, VoteBody};
+use crate::models::{AggregateStudio, SetNameBody, SubmitBody, PublicSubmission, VoteBody};
 use sqlx::SqlitePool;
 
 #[derive(Clone)]
@@ -26,7 +26,7 @@ pub async fn health() -> &'static str {
 pub async fn get_aggregate(
   State(state): State<AppState>,
   Path(studio_id_raw): Path<String>,
-) -> Result<Json<AggregateJson>, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<Json<AggregateStudio>, (StatusCode, Json<serde_json::Value>)> {
   let studio_id = parse_studio_uuid(&studio_id_raw)?;
   let row = db::get_aggregate(&state.pool, studio_id)
   .await
@@ -42,7 +42,7 @@ pub async fn get_aggregate(
 
 pub async fn list_submissions(
   State(state): State<AppState>
-) -> Result<Json<Vec<SubmissionPublic>>, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<Json<Vec<PublicSubmission>>, (StatusCode, Json<serde_json::Value>)> {
   let submissions = db::list_submissions(&state.pool)
   .await
   .map_err(|e| db_err(e))?;
@@ -52,7 +52,7 @@ pub async fn list_submissions(
 pub async fn list_submissions_by_studio(
   State(state): State<AppState>,
   Path(studio_id_raw): Path<String>,
-) -> Result<Json<Vec<SubmissionPublic>>, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<Json<Vec<PublicSubmission>>, (StatusCode, Json<serde_json::Value>)> {
   let studio_id = parse_studio_uuid(&studio_id_raw)?;
   let submissions = db::list_submissions_for_studio(&state.pool, studio_id)
   .await
@@ -65,15 +65,16 @@ pub async fn submit_time(
   auth: BearerUserId,
   Json(body): Json<SubmitBody>,
 ) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
-  if let Some(skip_seconds) = body.skip_seconds {
-    if !skip_seconds.is_finite() || skip_seconds < 0.0 || skip_seconds >= 60.0 {
-      return Err((
-        StatusCode::BAD_REQUEST,
-        Json(json!({
-          "error": "skip_seconds must be between 0 and 60"
-        })),
-      ));
-    }
+  if !body.skip_seconds.is_finite()
+    || body.skip_seconds < 0.0
+    || body.skip_seconds >= 60.0
+  {
+    return Err((
+      StatusCode::BAD_REQUEST,
+      Json(json!({
+        "error": "skip_seconds must be between 0 and 60"
+      })),
+    ));
   }
   
   let uid = auth.as_str();
@@ -85,7 +86,6 @@ pub async fn submit_time(
     &uid,
     body.studio_id,
     body.skip_seconds,
-    body.no_intro,
   )
   .await
   .map_err(|e| db_err(e))?;

@@ -3,18 +3,16 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, FromRow)]
-pub struct AggregateJson {
+pub struct AggregateStudio {
   pub studio_id: Uuid,
-  pub skip_seconds: Option<f64>,
-  pub no_intro: Option<bool>,
+  pub skip_seconds: f64,
 }
 
 #[derive(Debug, Serialize, FromRow)]
-pub struct SubmissionPublic {
+pub struct PublicSubmission {
   pub id: i64,
   pub studio_id: Uuid,
-  pub skip_seconds: Option<f64>,
-  pub no_intro: Option<bool>,
+  pub skip_seconds: f64,
   pub name: String,
   pub net_votes: i64,
 }
@@ -22,8 +20,7 @@ pub struct SubmissionPublic {
 #[derive(Debug, serde::Deserialize)]
 pub struct SubmitBody {
   pub studio_id: Uuid,
-  pub skip_seconds: Option<f64>,
-  pub no_intro: Option<bool>,
+  pub skip_seconds: f64,
 }
 
 #[derive(Debug, serde::Deserialize)]

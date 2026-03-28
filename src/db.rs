@@ -3,7 +3,7 @@
 use sqlx::{SqlitePool, Transaction};
 use uuid::Uuid;
 
-use crate::models::{AggregateJson, SubmissionPublic};
+use crate::models::{AggregateStudio, PublicSubmission};
 
 pub async fn ensure_user(pool: &SqlitePool, user_id: &str) -> sqlx::Result<()> {
   sqlx::query("INSERT OR IGNORE INTO users (user_id) VALUES (?)")
@@ -28,22 +28,33 @@ pub async fn submit_time(
   pool: &SqlitePool,
   user_id: &str,
   studio_id: Uuid,
-  skip_seconds: Option<f64>,
-  no_intro: Option<bool>,
+  skip_seconds: f64,
 ) -> sqlx::Result<()> {
+  // check for existing submissions
+  let existing: Option<i64> = sqlx::query_scalar::<_, i64>(
+    "SELECT id FROM submissions WHERE studio_id = ? AND skip_seconds = ?",
+  )
+  .bind(studio_id)
+  .bind(skip_seconds)
+  .fetch_optional(pool)
+  .await?;
+  // if exists, upvote instead
+  if let Some(id) = existing {
+    cast_vote(pool, user_id, id, 1).await?;
+    return Ok(());
+  }
+
   let mut tx = pool.begin().await?;
   
   sqlx::query(
-    "INSERT INTO submissions (user_id, studio_id, skip_seconds, no_intro) VALUES (?, ?, ?, ?)
+    "INSERT INTO submissions (user_id, studio_id, skip_seconds) VALUES (?, ?, ?)
          ON CONFLICT (studio_id, user_id) DO UPDATE SET
            skip_seconds = excluded.skip_seconds,
-           no_intro = excluded.no_intro,
            created_at = date('now')",
   )
   .bind(user_id)
   .bind(studio_id)
   .bind(skip_seconds)
-  .bind(no_intro)
   .execute(&mut *tx)
   .await?;
   
@@ -94,28 +105,27 @@ pub async fn cast_vote(
 pub async fn get_aggregate(
   pool: &SqlitePool,
   studio_id: Uuid,
-) -> sqlx::Result<Option<AggregateJson>> {
-  sqlx::query_as::<_, AggregateJson>(
-    "SELECT studio_id, skip_seconds, no_intro FROM studio_aggregates WHERE studio_id = ?",
+) -> sqlx::Result<Option<AggregateStudio>> {
+  sqlx::query_as::<_, AggregateStudio>(
+    "SELECT studio_id, skip_seconds FROM studio_aggregates WHERE studio_id = ?",
   )
   .bind(studio_id)
   .fetch_optional(pool)
   .await
 }
 
-pub async fn list_submissions(pool: &SqlitePool) -> sqlx::Result<Vec<SubmissionPublic>> {
-  let rows = sqlx::query_as::<_, SubmissionPublic>(
+pub async fn list_submissions(pool: &SqlitePool) -> sqlx::Result<Vec<PublicSubmission>> {
+  let rows = sqlx::query_as::<_, PublicSubmission>(
     r#"SELECT
         s.id,
         s.studio_id,
         s.skip_seconds,
-        s.no_intro,
         COALESCE(NULLIF(TRIM(u.name), ''), 'anonymous') AS name,
         COALESCE(SUM(v.vote), 0) AS net_votes
       FROM submissions s
       JOIN users u ON u.user_id = s.user_id
       LEFT JOIN votes v ON v.submission_id = s.id
-      GROUP BY s.id, s.studio_id, s.skip_seconds, s.no_intro, u.name
+      GROUP BY s.id, s.studio_id, s.skip_seconds, u.name
       ORDER BY s.id"#,
   )
   .fetch_all(pool)
@@ -127,20 +137,19 @@ pub async fn list_submissions(pool: &SqlitePool) -> sqlx::Result<Vec<SubmissionP
 pub async fn list_submissions_for_studio(
   pool: &SqlitePool,
   studio_id: Uuid,
-) -> sqlx::Result<Vec<SubmissionPublic>> {
-  let rows = sqlx::query_as::<_, SubmissionPublic>(
+) -> sqlx::Result<Vec<PublicSubmission>> {
+  let rows = sqlx::query_as::<_, PublicSubmission>(
     r#"SELECT
         s.id,
         s.studio_id,
         s.skip_seconds,
-        s.no_intro,
         COALESCE(NULLIF(TRIM(u.name), ''), 'anonymous') AS name,
         COALESCE(SUM(v.vote), 0) AS net_votes
       FROM submissions s
       JOIN users u ON u.user_id = s.user_id
       LEFT JOIN votes v ON v.submission_id = s.id
       WHERE s.studio_id = ?
-      GROUP BY s.id, s.studio_id, s.skip_seconds, s.no_intro, u.name
+      GROUP BY s.id, s.studio_id, s.skip_seconds, u.name
       ORDER BY s.id"#,
   )
   .bind(studio_id)
@@ -154,35 +163,32 @@ async fn recompute_studio_aggregate_tx(
   studio_id: Uuid,
 ) -> sqlx::Result<()> {
   sqlx::query(
-    r#"INSERT INTO studio_aggregates (studio_id, skip_seconds, no_intro)
+    r#"INSERT INTO studio_aggregates (studio_id, skip_seconds)
       WITH scored AS (
         SELECT
           s.id,
           s.studio_id,
           s.skip_seconds,
-          s.no_intro,
           COALESCE(SUM(v.vote), 0) AS net_votes
         FROM submissions s
         LEFT JOIN votes v ON v.submission_id = s.id
         WHERE s.studio_id = ?
-        GROUP BY s.id, s.studio_id, s.skip_seconds, s.no_intro
+        GROUP BY s.id, s.studio_id, s.skip_seconds
       ),
       winner AS (
-        SELECT studio_id, skip_seconds, no_intro
+        SELECT studio_id, skip_seconds
         FROM scored
         ORDER BY
           net_votes DESC,
-          (skip_seconds IS NULL) ASC,
           skip_seconds ASC,
           id DESC
         LIMIT 1
       )
-      SELECT studio_id, skip_seconds, no_intro
+      SELECT studio_id, skip_seconds
       FROM winner
       WHERE 1
       ON CONFLICT (studio_id) DO UPDATE SET
-        skip_seconds = excluded.skip_seconds,
-        no_intro = excluded.no_intro"#,
+        skip_seconds = excluded.skip_seconds"#,
   )
   .bind(studio_id)
   .execute(&mut **tx)
