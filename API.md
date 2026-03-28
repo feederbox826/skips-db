@@ -60,5 +60,6 @@ POST `/api/user/name`
 ## Identifiers/ Privacy
 Users are auth'd with a random UUID. This is associated with all of your submissions and votes as an anti-spam measure. Users can optionally choose to identify themselves by associating an alias with their UUID. This can be changed at any time to revert the username displayed to "anonymous"
 
-## Sorting/ ORder
-- 
+## Sorting/ Order
+- highest votes
+- lowest time
