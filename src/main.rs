@@ -34,6 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   sqlx::migrate!("./migrations").run(&pool).await?;
   
   let app = Router::new()
+    .route("/", axum::routing::get(routes::root_path))
     .route("/health", axum::routing::get(routes::health))
     .route("/api/time/all", axum::routing::get(routes::list_submissions))
     .route("/api/time/submit", axum::routing::post(routes::submit_time))

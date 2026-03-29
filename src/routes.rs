@@ -19,6 +19,10 @@ pub struct AppState {
 
 const MAX_NAME_LEN: usize = 256;
 
+pub async fn root_path() -> &'static str {
+  "skips-db"
+}
+
 pub async fn health() -> &'static str {
   "ok"
 }
