@@ -37,6 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .route("/", axum::routing::get(routes::root_path))
     .route("/health", axum::routing::get(routes::health))
     .route("/api/time/all", axum::routing::get(routes::list_submissions))
+    .route("/api/time/all/studios", axum::routing::get(routes::list_all_studios))
     .route("/api/time/submit", axum::routing::post(routes::submit_time))
     .route(
       "/api/time/vote/{id}",

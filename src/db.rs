@@ -134,6 +134,12 @@ pub async fn list_submissions(pool: &SqlitePool) -> sqlx::Result<Vec<PublicSubmi
   Ok(rows)
 }
 
+pub async fn list_all_studios(pool: &SqlitePool) -> sqlx::Result<Vec<Uuid>> {
+  let rows = sqlx::query_scalar("SELECT DISTINCT studio_id FROM submissions")
+    .fetch_all(pool)
+    .await?;
+  Ok(rows)
+}
 
 pub async fn list_submissions_for_studio(
   pool: &SqlitePool,

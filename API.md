@@ -19,6 +19,9 @@ returns all submissions from the studio in the form of [PublicSubmission](#Publi
 GET `/api/time/all`  
 returns all submissions in the form of [PublicSubmission](#PublicSubmission)
 
+GET `/api/time/all/studios`  
+returns all studios with submissions in an array of UUIDs
+
 ### Authenticated
 Authentication is done via Bearer `Authorization` with a UUID of any version. Header value should be in the following format: `Bearer 00000000-0000-0000-0000-000000000000`. See [Identifiers/ Privacy](#identifiers-privacy) for details
 

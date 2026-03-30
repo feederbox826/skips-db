@@ -80,6 +80,15 @@ pub async fn list_submissions_by_studio(
   Ok(Json(submissions))
 }
 
+pub async fn list_all_studios(
+  State(state): State<AppState>,
+) -> Result<Json<Vec<Uuid>>, (StatusCode, Json<serde_json::Value>)> {
+  let studios = db::list_all_studios(&state.pool)
+    .await
+    .map_err(|e| db_err(e))?;
+  Ok(Json(studios))
+}
+
 pub async fn submit_time(
   State(state): State<AppState>,
   auth: BearerUserId,
