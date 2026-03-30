@@ -44,20 +44,38 @@ pub async fn submit_time(
     return Ok(());
   }
 
-  let mut tx = pool.begin().await?;
-  
-  sqlx::query(
-    "INSERT INTO submissions (user_id, studio_id, skip_seconds) VALUES (?, ?, ?)
-      ON CONFLICT (studio_id, user_id) DO UPDATE SET
-        skip_seconds = excluded.skip_seconds,
-        created_at = current_date",
+  let own_row: Option<i64> = sqlx::query_scalar::<_, i64>(
+    "SELECT id FROM submissions WHERE studio_id = ? AND user_id = ?",
   )
+    .bind(studio_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+
+  let mut tx = pool.begin().await?;
+
+  if let Some(id) = own_row {
+    sqlx::query(
+      "UPDATE submissions SET skip_seconds = ?, created_at = current_date WHERE id = ?",
+    )
+    .bind(skip_seconds)
+    .bind(id)
+    .execute(&mut *tx)
+    .await?;
+  } else {
+    sqlx::query(
+      "INSERT INTO submissions (user_id, studio_id, skip_seconds) VALUES (?, ?, ?)
+        ON CONFLICT (studio_id, user_id) DO UPDATE SET
+          skip_seconds = excluded.skip_seconds,
+          created_at = current_date",
+    )
     .bind(user_id)
     .bind(studio_id)
     .bind(skip_seconds)
     .execute(&mut *tx)
     .await?;
-  
+  }
+
   recompute_studio_aggregate_tx(&mut tx, studio_id).await?;
   
   tx.commit().await?;
