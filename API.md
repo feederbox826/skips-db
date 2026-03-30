@@ -7,6 +7,12 @@ returns "ok"
 GET `/api/time/{studio_id}`  
 returns all submissions from the studio in the form of [AggregateStudio](#AggregateStudio)
 
+HEAD `/api/time/{studio_id}`  
+returns status code if submissions were found for studioID
+- 202: found
+- 404: no submissions
+- 422: invalid uuid format
+
 GET `/api/time/{studio_id}/submissions`  
 returns all submissions from the studio in the form of [PublicSubmission](#PublicSubmission)
 

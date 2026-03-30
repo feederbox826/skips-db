@@ -44,6 +44,22 @@ pub async fn get_aggregate(
   Ok(Json(aggregate))
 }
 
+pub async fn head_aggregate(
+  State(state): State<AppState>,
+  Path(studio_id_raw): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+  let studio_id = parse_studio_uuid(&studio_id_raw)
+    .map_err(|_| StatusCode::BAD_REQUEST)?;
+  let row = db::get_aggregate(&state.pool, studio_id)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+  let Some(_aggregate) = row else {
+    return Err(StatusCode::NOT_FOUND);
+  };
+  Ok(StatusCode::NO_CONTENT)
+}
+
+
 pub async fn list_submissions(
   State(state): State<AppState>
 ) -> Result<Json<Vec<PublicSubmission>>, (StatusCode, Json<serde_json::Value>)> {

@@ -50,6 +50,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       "/api/time/{studio_id}",
       axum::routing::get(routes::get_aggregate),
     )
+    .route(
+      "/api/time/{studio_id}",
+      axum::routing::head(routes::head_aggregate),
+    )
     .route("/api/user/name", axum::routing::post(routes::set_name))
     .with_state(AppState { pool })
     .layer(CorsLayer::new().allow_origin(Any));
