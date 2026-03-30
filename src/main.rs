@@ -30,11 +30,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .max_connections(5)
     .connect(&database_url)
     .await?;
-  
+
   sqlx::migrate!("./migrations").run(&pool).await?;
-  
+
   let app = Router::new()
     .route("/", axum::routing::get(routes::root_path))
+    .route("/ui", axum::routing::get(routes::ui_page))
     .route("/health", axum::routing::get(routes::health))
     .route("/api/time/all", axum::routing::get(routes::list_submissions))
     .route("/api/time/all/studios", axum::routing::get(routes::list_all_studios))

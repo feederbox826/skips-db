@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>skips-db</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9aab;
+      --accent: #5b9fd4;
+      --danger: #c45c5c;
+      --ok: #6b9f7a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      line-height: 1.45;
+      padding: 1.25rem clamp(0.75rem, 3vw, 2rem) 3rem;
+      max-width: 1100px;
+      margin-inline: auto;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 1rem; }
+    h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 0.5rem;
+    }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    label { display: block; font-size: 0.9rem; margin-bottom: 0.35rem; color: var(--muted); }
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      max-width: 28rem;
+      padding: 0.45rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    button {
+      font-size: 0.9rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #0f1419; font-weight: 600; }
+    button.vote-up { border-color: var(--ok); color: var(--ok); }
+    button.vote-down { border-color: var(--danger); color: var(--danger); }
+    .row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; margin-bottom: 0.75rem; }
+    .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
+    .msg { font-size: 0.85rem; margin-top: 0.5rem; }
+    .msg.err { color: var(--danger); }
+    .msg.ok { color: var(--ok); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.5rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: ui-monospace, Consolas, monospace; font-size: 0.82rem; word-break: break-all; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; }
+    .toolbar label { margin: 0; display: inline; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    #user-uuid { -webkit-text-security: disc; }
+    #user-uuid:focus { -webkit-text-security: none; }
+    td.skip-zero {
+      background: rgba(107, 159, 122, 0.18);
+      color: var(--ok);
+      font-weight: 700;
+    }
+    td.votes-pos {
+      background: rgba(107, 159, 122, 0.14);
+      color: var(--ok);
+      font-weight: 700;
+    }
+    td.votes-neg {
+      background: rgba(196, 92, 92, 0.14);
+      color: var(--danger);
+      font-weight: 700;
+    }
+    td.votes-zero {
+      color: var(--muted);
+    }
+    .muted { color: var(--muted); }
+    .actions { white-space: nowrap; }
+    .refresh { margin-left: auto; }
+    @media (max-width: 700px) {
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <h1>skips-db</h1>
+
+  <section aria-labelledby="settings-h">
+    <h2 id="settings-h">Settings</h2>
+    <form id="settings-form" onsubmit="event.preventDefault()">
+      <div class="row">
+        <div style="flex:1; min-width:220px;">
+          <label for="user-uuid">User UUID (Bearer token for voting &amp; submit)</label>
+          <input
+            type="text"
+            id="user-uuid"
+            placeholder="00000000-0000-0000-0000-000000000000"
+            autocomplete="off"
+          />
+        </div>
+        <button type="button" class="primary" id="save-uuid">Save</button>
+      </div>
+    </form>
+    <p class="hint">Stored locally. Retrieve your UUID from config.yml</p>
+    <p class="msg" id="settings-msg" hidden></p>
+  </section>
+
+  <section aria-labelledby="submit-h">
+    <h2 id="submit-h">Submit skip time</h2>
+    <div class="row">
+      <div style="flex:1; min-width:200px;">
+        <label for="submit-studio">Studio Stash ID</label>
+        <input type="text" id="submit-studio" placeholder="studio stash id" />
+      </div>
+      <div style="width:8rem;">
+        <label for="submit-secs">Skip First</label>
+        <input type="number" id="submit-secs" min="0" max="60" step="0.1" value="0" />
+      </div>
+      <button type="button" class="primary" id="submit-btn">Submit</button>
+    </div>
+    <p class="hint">0-60 seconds. 0 = no intro</p>
+    <p class="msg" id="submit-msg" hidden></p>
+  </section>
+
+  <section aria-labelledby="filter-h">
+    <h2 id="filter-h">Submissions</h2>
+    <div class="toolbar">
+      <label><input type="radio" name="view" value="all" checked /> All</label>
+      <label><input type="radio" name="view" value="studio" /> Studio</label>
+      <select id="studio-select" disabled aria-label="Studio filter"></select>
+      <button type="button" id="refresh" class="refresh">Refresh</button>
+    </div>
+    <div id="list-msg" class="msg err" hidden></div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Studio</th>
+            <th class="num">Skip (s)</th>
+            <th>Submitter</th>
+            <th class="num">Votes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script>
+    const USER_KEY = "skips_db_uuid";
+    const studioNameCache = new Map();
+    const STASH_LOOKUP_BASE = "https://lookup.feederbox.cc";
+
+    const $ = (id) => document.getElementById(id);
+
+    // human
+    const getBearer = () => localStorage.getItem(USER_KEY)?.trim() || null;
+    const getHeaders = () => ({
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${getBearer()}` });
+
+    function showMsg(el, text, ok) {
+      el.hidden = !text;
+      el.textContent = text || "";
+      el.className = "msg " + (ok ? "ok" : "err");
+    }
+
+    const loadSettings = () => $("user-uuid").value = getBearer() || "";
+    const authEnabled = () => !!getBearer();
+    const updateAuthUI = () => $("submit-btn").disabled = !authEnabled();
+
+    $("save-uuid").addEventListener("click", () => {
+      const value = $("user-uuid").value.trim();
+      if (value) {
+        if (!/^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i.test(value)) {
+          showMsg($("settings-msg"), "Only UUIDv4 (random) supported", false);
+          return;
+        }
+        localStorage.setItem(USER_KEY, value);
+      } else {
+        localStorage.removeItem(USER_KEY);
+      }
+      showMsg(
+        $("settings-msg"),
+        (value ? "Saved." : "UUID cleared."),
+        true
+      );
+
+      updateAuthUI();
+    });
+
+    const resolveStudioName = (uuid) => {
+      if (studioNameCache.has(uuid)) return studioNameCache.get(uuid);
+      return fetch(`${STASH_LOOKUP_BASE}/api/id/studios/${uuid}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          const name = data[0].name;
+          studioNameCache.set(uuid, name);
+          return name;
+        })
+        .catch(() => "");
+    }
+
+    const hydrateStudioNames = (uuids) => Promise.all(uuids.map(resolveStudioName));
+    const studioSortKey = (studioId) => studioNameCache.get(studioId) ?? studioId;
+    const compareStudios = (a, b) => studioSortKey(a).localeCompare(studioSortKey(b));
+    const votesClassFor = (votes) => (votes > 0 ? "votes-pos" : votes < 0 ? "votes-neg" : "votes-zero");
+
+    const studioCellHtml = (uuid) => {
+      const name = studioNameCache.get(uuid);
+      const line1 = name
+        ? `<strong>${escapeHtml(name)}</strong>`
+        : `<span class="muted">—</span>`;
+      return `${line1}<div class="mono">${uuid}</div>`;
+    };
+
+    const escapeHtml = (s) =>
+      String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;");
+
+    function renderRows(rows) {
+      const tb = $("tbody");
+      tb.innerHTML = "";
+      const canVote = authEnabled();
+      for (const s of rows) {
+        const skip = Number(s.skip_seconds);
+        const isZero = skip == 0;
+        const votes = Number(s.net_votes);
+        const votesClass = votesClassFor(votes);
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          `<td>${s.id}</td>` +
+          `<td>${studioCellHtml(s.studio_id)}</td>` +
+          `<td class="num ${isZero ? 'skip-zero' : ''}">${skip.toFixed(1)}</td>` +
+          `<td>${escapeHtml(s.name)}</td>` +
+          `<td class="num ${votesClass}">${votes}</td>` +
+          '<td class="actions">' +
+          `<button type="button" class="vote-up" data-id="${s.id}" title="Upvote">+1</button> ` +
+          `<button type="button" class="vote-down" data-id="${s.id}" title="Downvote">-1</button>` +
+          "</td>";
+        tb.appendChild(tr);
+      }
+      tb.querySelectorAll(".vote-up, .vote-down").forEach((btn) => {
+        btn.disabled = !canVote;
+        btn.addEventListener("click", () => vote(btn.dataset.id, btn.classList.contains("vote-up") ? 1 : -1));
+      });
+    }
+
+    async function vote(id, value) {
+      const msg = $("list-msg");
+      msg.hidden = true;
+      if (!getBearer()) {
+        showMsg(msg, "Set a User UUID in Settings first.", false);
+        return;
+      }
+      try {
+        const r = await fetch(`/api/time/vote/${id}`, {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({ value }),
+        });
+        if (r.status === 204) {
+          await loadSubmissions();
+          return;
+        }
+        let err = `Vote failed (${r.status})`;
+        try {
+          const j = await r.json();
+          if (j.error) err = j.error;
+        } catch (_) {}
+        showMsg(msg, err, false);
+      } catch (e) {
+        showMsg(msg, String(e), false);
+      }
+    }
+
+    async function loadStudiosDropdown() {
+      const sel = $("studio-select");
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">pick a studio</option>';
+      try {
+        const r = await fetch("/api/time/all/studios");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const uuids = await r.json();
+        const list = Array.isArray(uuids) ? uuids.slice() : [];
+        await hydrateStudioNames(list);
+        // Alphabetize by resolved studio name; fall back to UUID.
+        list.sort(compareStudios);
+        for (const u of list) {
+          const opt = document.createElement("option");
+          opt.value = u;
+          const n = studioNameCache.get(u);
+          opt.textContent = n ? `${n} — ${u}` : u;
+          sel.appendChild(opt);
+        }
+        if (cur && list.includes(cur)) sel.value = cur;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadSubmissions() {
+      const msg = $("list-msg");
+      msg.hidden = true;
+      const view = document.querySelector('input[name="view"]:checked').value;
+      let url = "/api/time/all";
+      if (view === "studio") {
+        const sid = $("studio-select").value;
+        if (!sid) {
+          $("tbody").innerHTML = "";
+          showMsg(msg, "Select a studio.", false);
+          return;
+        }
+        url = "/api/time/" + encodeURIComponent(sid) + "/submissions";
+      }
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const rows = await r.json();
+        const uuids = [...new Set(rows.map((x) => x.studio_id))];
+        await hydrateStudioNames(uuids);
+        // Alphabetize submissions by resolved studio name once lookup is hydrated.
+        // Fall back to UUID when name lookup fails, then tiebreak by submission id.
+        rows.sort((a, b) => {
+          const byStudio = compareStudios(a.studio_id, b.studio_id);
+          return byStudio !== 0 ? byStudio : a.id - b.id;
+        });
+        renderRows(rows);
+      } catch (e) {
+        showMsg(msg, String(e), false);
+        $("tbody").innerHTML = "";
+      }
+    }
+
+    document.querySelectorAll('input[name="view"]').forEach((el) => {
+      el.addEventListener("change", () => {
+        const studio = document.querySelector('input[name="view"][value="studio"]').checked;
+        $("studio-select").disabled = !studio;
+        loadSubmissions();
+      });
+    });
+    $("studio-select").addEventListener("change", loadSubmissions);
+    $("refresh").addEventListener("click", () => {
+      loadStudiosDropdown();
+      loadSubmissions();
+    });
+
+    $("submit-btn").addEventListener("click", async () => {
+      const el = $("submit-msg");
+      el.hidden = true;
+      if (!getBearer()) {
+        showMsg(el, "Set a User UUID in Settings first.", false);
+        return;
+      }
+      const studio_id = $("submit-studio").value.trim();
+      const skip_seconds = parseFloat($("submit-secs").value);
+      if (!studio_id) {
+        showMsg(el, "Enter a studio UUID.", false);
+        return;
+      }
+      if (!Number.isFinite(skip_seconds) || skip_seconds < 0 || skip_seconds >= 60) {
+        showMsg(el, "skip_seconds must be ≥ 0 and < 60.", false);
+        return;
+      }
+      try {
+        const r = await fetch("/api/time/submit", {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({ studio_id, skip_seconds }),
+        });
+        if (r.status === 201) {
+          showMsg(el, "Submitted.", true);
+          $("submit-secs").value = "0";
+          await loadStudiosDropdown();
+          await loadSubmissions();
+          return;
+        }
+        let err = `Submit failed (${r.status})`;
+        try {
+          const j = await r.json();
+          if (j.error) err = j.error;
+        } catch (_) {}
+        showMsg(el, err, false);
+      } catch (e) {
+        showMsg(el, String(e), false);
+      }
+    });
+
+    loadSettings();
+    updateAuthUI();
+    loadStudiosDropdown();
+    loadSubmissions();
+  </script>
+</body>
+</html>

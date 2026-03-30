@@ -1,14 +1,14 @@
 use axum::{
   extract::{Path, State},
   http::StatusCode,
-  response::Json,
+  response::{Html, Json},
 };
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::auth::BearerUserId;
 use crate::db;
-use crate::models::{AggregateStudio, SetNameBody, SubmitBody, PublicSubmission, VoteBody};
+use crate::models::{AggregateStudio, PublicSubmission, SetNameBody, SubmitBody, VoteBody};
 use sqlx::SqlitePool;
 
 #[derive(Clone)]
@@ -20,7 +20,11 @@ pub struct AppState {
 const MAX_NAME_LEN: usize = 256;
 
 pub async fn root_path() -> &'static str {
-  "skips-db"
+  "skips-db\nsee /ui for webui"
+}
+
+pub async fn ui_page() -> Html<&'static str> {
+  Html(include_str!("../static/index.html"))
 }
 
 pub async fn health() -> &'static str {
